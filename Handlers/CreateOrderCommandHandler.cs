@@ -1,5 +1,6 @@
 ﻿using System.Reflection.Metadata;
 using AutoMapper;
+using FluentValidation;
 using OrderApi.Commands;
 using OrderApi.Contracts;
 using OrderApi.Data;
@@ -12,10 +13,14 @@ public class CreateOrderCommandHandler : ICommandHandler<CreateOrderCommand, Ord
 {
   private readonly IMapper mapper;
   private readonly AppDbContext context;
-  public CreateOrderCommandHandler(AppDbContext context, IMapper mapper)
+  // private readonly IValidator<CreateOrderCommandValidator> validator;
+  public CreateOrderCommandHandler(
+    AppDbContext context,
+     IMapper mapper)
   {
     this.mapper = mapper;
     this.context = context;
+    // this.validator = validator;
   }
   public static async Task<Order> Handle(CreateOrderCommand command, AppDbContext context)
   {

@@ -1,6 +1,8 @@
 using System.Net;
+using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using MinimalApi.Filters;
 using OrderApi;
 using OrderApi.Commands;
 using OrderApi.Contracts;
@@ -27,7 +29,11 @@ builder.Services.AddAutoMapper(typeof(OrderProfile));
 
 // ! register services
 builder.Services.AddScoped<ICommandHandler<CreateOrderCommand,OrderDto>, CreateOrderCommandHandler>();
-builder.Services.AddScoped<IQueryHandler<GetOrderByIdQuery,OrderDto>, GetOrderByIdQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetOrderByIdQuery, OrderDto>, GetOrderByIdQueryHandler>();
+
+// ! register validation
+builder.Services.AddScoped<IValidator<CreateOrderCommand>, CreateOrderCommandValidator>();
+builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
 var app = builder.Build();
 
@@ -37,6 +43,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+// register middleware
+app.UseMiddleware<ExceptionMiddleware>();
+
+
+//! ----------- End Points ------------ \\
 
 app.MapGet("/api/orders/{id:int}", async (AppDbContext context, int id) =>
 {
@@ -67,7 +79,7 @@ app.MapPost("/api/cqrs/v1/orders", async (AppDbContext context, CreateOrderComma
     if (order is null)
         return Results.Problem(detail:"Error while create order", statusCode: StatusCodes.Status500InternalServerError);
 
-    return Results.Created($"/api/cqrs/orders{order.Id}", order);
+    return Results.Created($"/api/cqrs/v1/orders{order.Id}", order);
 });
 
 app.MapGet("/api/cqrs/v2/orders/{id:int}", async (IQueryHandler<GetOrderByIdQuery, OrderDto> queryHandler,  int id) =>
@@ -76,10 +88,15 @@ app.MapGet("/api/cqrs/v2/orders/{id:int}", async (IQueryHandler<GetOrderByIdQuer
     
 });
 
-app.MapPost("/api/cqrs/v2/orders",async (ICommandHandler<CreateOrderCommand, OrderDto> commandHandler, CreateOrderCommand command) =>
+app.MapPost("/api/cqrs/v2/orders", async (ICommandHandler<CreateOrderCommand, OrderDto> commandHandler, CreateOrderCommand command) =>
 {
-    return await commandHandler.HandlerAsync(command);
-});
+    var order = await commandHandler.HandlerAsync(command);
+    if (order is null)
+        return Results.Problem(detail: "Error while create order", statusCode: StatusCodes.Status500InternalServerError);
+
+    return Results.Created($"/api/cqrs/v2/orders{order.Id}", order);
+})
+.AddEndpointFilter<ValidationFilter<CreateOrderCommand>>();
 
 
 app.UseHttpsRedirection();
