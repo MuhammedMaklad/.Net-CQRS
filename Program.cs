@@ -1,5 +1,14 @@
+using System.Net;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using OrderApi;
+using OrderApi.Commands;
+using OrderApi.Contracts;
 using OrderApi.Data;
+using OrderApi.DTOs;
+using OrderApi.Handlers;
+using OrderApi.Models;
+using OrderApi.Queries;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +22,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// ! register automapper 
+builder.Services.AddAutoMapper(typeof(OrderProfile));
+
+// ! register services
+builder.Services.AddScoped<ICommandHandler<CreateOrderCommand,OrderDto>, CreateOrderCommandHandler>();
+builder.Services.AddScoped<IQueryHandler<GetOrderByIdQuery,OrderDto>, GetOrderByIdQueryHandler>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -21,6 +37,50 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.MapGet("/api/orders/{id:int}", async (AppDbContext context, int id) =>
+{
+    return await context.Orders.SingleOrDefaultAsync(x => x.Id == id);
+});
+
+app.MapPost("/api/orders", async (AppDbContext context, Order order) =>
+{
+    await context.Orders.AddAsync(order);
+    await context.SaveChangesAsync();
+
+    return Results.Created($"/api/orders{order.Id}", order);
+});
+
+// ---- using CQRS -------------- \\
+
+app.MapGet("/api/cqrs/v1/orders/{id:int}", async (AppDbContext context, int id) =>
+{
+    var order = await GetOrderByIdQueryHandler.Handle(new GetOrderByIdQuery(id), context);
+    if (order is null)
+        return Results.NotFound();
+    return Results.Ok(order);
+});
+
+app.MapPost("/api/cqrs/v1/orders", async (AppDbContext context, CreateOrderCommand command) =>
+{
+    var order = await CreateOrderCommandHandler.Handle(command, context);
+    if (order is null)
+        return Results.Problem(detail:"Error while create order", statusCode: StatusCodes.Status500InternalServerError);
+
+    return Results.Created($"/api/cqrs/orders{order.Id}", order);
+});
+
+app.MapGet("/api/cqrs/v2/orders/{id:int}", async (IQueryHandler<GetOrderByIdQuery, OrderDto> queryHandler,  int id) =>
+{
+    return await queryHandler.HandlerAsync(new GetOrderByIdQuery(id));
+    
+});
+
+app.MapPost("/api/cqrs/v2/orders",async (ICommandHandler<CreateOrderCommand, OrderDto> commandHandler, CreateOrderCommand command) =>
+{
+    return await commandHandler.HandlerAsync(command);
+});
+
 
 app.UseHttpsRedirection();
 
