@@ -1,5 +1,6 @@
 using System.Net;
 using FluentValidation;
+using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -38,11 +39,14 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddAutoMapper(typeof(OrderProfile));
 
 // ! register services
-builder.Services.AddScoped<ICommandHandler<CreateOrderCommand,OrderDto>, CreateOrderCommandHandler>();
-builder.Services.AddScoped<IQueryHandler<GetOrderByIdQuery, OrderDto>, GetOrderByIdQueryHandler>();
-builder.Services.AddScoped<IQueryHandler<GetOrderSummaryQuery, List<OrderSummaryDto>>, GetOrderSummaryQueryHandler>();
-builder.Services.AddSingleton<IEventPublisher, InProgressEventPublisher>();
-builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedProjectionHandler>();
+// builder.Services.AddScoped<ICommandHandler<CreateOrderCommand,OrderDto>, CreateOrderCommandHandler>();
+// builder.Services.AddScoped<IQueryHandler<GetOrderByIdQuery, OrderDto>, GetOrderByIdQueryHandler>();
+// builder.Services.AddScoped<IQueryHandler<GetOrderSummaryQuery, List<OrderSummaryDto>>, GetOrderSummaryQueryHandler>();
+// builder.Services.AddSingleton<IEventPublisher, InProgressEventPublisher>();
+// builder.Services.AddScoped<IEventHandler<OrderCreatedEvent>, OrderCreatedProjectionHandler>();
+
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
 // ! register validation
 builder.Services.AddScoped<IValidator<CreateOrderCommand>, CreateOrderCommandValidator>();
@@ -95,15 +99,38 @@ app.UseMiddleware<ExceptionMiddleware>();
 //     return Results.Created($"/api/cqrs/v1/orders{order.Id}", order);
 // });
 
-app.MapGet("/api/cqrs/v2/orders/{id:int}", async (IQueryHandler<GetOrderByIdQuery, OrderDto> queryHandler,  int id) =>
+// app.MapGet("/api/cqrs/v2/orders/{id:int}", async (IQueryHandler<GetOrderByIdQuery, OrderDto> queryHandler,  int id) =>
+// {
+//     return await queryHandler.HandlerAsync(new GetOrderByIdQuery(id));
+    
+// });
+
+// app.MapPost("/api/cqrs/v2/orders", async (ICommandHandler<CreateOrderCommand, OrderDto> commandHandler, CreateOrderCommand command) =>
+// {
+//     var order = await commandHandler.HandlerAsync(command);
+//     if (order is null)
+//         return Results.Problem(detail: "Error while create order", statusCode: StatusCodes.Status500InternalServerError);
+
+//     return Results.Created($"/api/cqrs/v2/orders{order.Id}", order);
+// })
+// .AddEndpointFilter<ValidationFilter<CreateOrderCommand>>();
+
+
+// app.MapGet("/api/cqrs/v2/orders", async (IQueryHandler<GetOrderSummaryQuery, List<OrderSummaryDto>> queryHandler) =>
+// {
+//     var orders = await queryHandler.HandlerAsync(new GetOrderSummaryQuery());
+//     return Results.Ok(orders);
+// });
+
+app.MapGet("/api/cqrs/v2/orders/{id:int}", async (IMediator mediator,  int id) =>
 {
-    return await queryHandler.HandlerAsync(new GetOrderByIdQuery(id));
+    return await mediator.Send(new GetOrderByIdQuery(id));
     
 });
 
-app.MapPost("/api/cqrs/v2/orders", async (ICommandHandler<CreateOrderCommand, OrderDto> commandHandler, CreateOrderCommand command) =>
+app.MapPost("/api/cqrs/v2/orders", async (IMediator mediator, CreateOrderCommand command) =>
 {
-    var order = await commandHandler.HandlerAsync(command);
+    var order = await mediator.Send(command);
     if (order is null)
         return Results.Problem(detail: "Error while create order", statusCode: StatusCodes.Status500InternalServerError);
 
@@ -112,9 +139,9 @@ app.MapPost("/api/cqrs/v2/orders", async (ICommandHandler<CreateOrderCommand, Or
 .AddEndpointFilter<ValidationFilter<CreateOrderCommand>>();
 
 
-app.MapGet("/api/cqrs/v2/orders", async (IQueryHandler<GetOrderSummaryQuery, List<OrderSummaryDto>> queryHandler) =>
+app.MapGet("/api/cqrs/v2/orders", async (IMediator mediator) =>
 {
-    var orders = await queryHandler.HandlerAsync(new GetOrderSummaryQuery());
+    var orders = await mediator.Send(new GetOrderSummaryQuery());
     return Results.Ok(orders);
 });
 

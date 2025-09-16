@@ -1,4 +1,7 @@
-﻿namespace OrderApi.Queries;
+﻿using MediatR;
+using OrderApi.DTOs;
 
-public record GetOrderByIdQuery(int OrderId);
+namespace OrderApi.Queries;
+
+public record GetOrderByIdQuery(int OrderId): IRequest<OrderDto?>;
 
