@@ -11,8 +11,8 @@ public class GetOrderSummaryQueryHandler : IQueryHandler<GetOrderSummaryQuery, L
 {
   
   private readonly IMapper mapper ;
-  private readonly AppDbContext context;
-  public GetOrderSummaryQueryHandler(IMapper mapper, AppDbContext context)
+  private readonly WriteDbContext context;
+  public GetOrderSummaryQueryHandler(IMapper mapper, WriteDbContext context)
   {
     this.mapper = mapper;
     this.context = context;

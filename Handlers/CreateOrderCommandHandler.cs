@@ -13,13 +13,16 @@ namespace OrderApi.Handlers;
 public class CreateOrderCommandHandler : ICommandHandler<CreateOrderCommand, OrderDto>
 {
   private readonly IMapper mapper;
-  private readonly AppDbContext context;
+  private readonly WriteDbContext context;
   // private readonly IValidator<CreateOrderCommandValidator> validator;
   private readonly IEventPublisher eventPublisher;
+
   public CreateOrderCommandHandler(
-    AppDbContext context,
+    WriteDbContext context,
      IMapper mapper,
-     IEventPublisher eventPublisher)
+     IEventPublisher eventPublisher,
+     IEventHandler<OrderCreatedEvent> eventHandler
+     )
   {
     this.mapper = mapper;
     this.context = context;
@@ -52,8 +55,8 @@ public class CreateOrderCommandHandler : ICommandHandler<CreateOrderCommand, Ord
     await context.SaveChangesAsync();
 
     // TODO:
-    var orderCreatedEvent = new OrderCreatedEvent(order.Id, order.FirstName, order.LastName, order.TotalCost);
-    await eventPublisher.PublishAsync(orderCreatedEvent);
+    var orderCreatedEvent = mapper.Map<OrderCreatedEvent>(order);
+    await eventPublisher.PublishAsync<OrderCreatedEvent>(orderCreatedEvent);
 
     return mapper.Map<OrderDto>(order);
   }

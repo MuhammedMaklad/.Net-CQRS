@@ -10,9 +10,9 @@ namespace OrderApi.Handlers;
 
 public class GetOrderByIdQueryHandler : IQueryHandler<GetOrderByIdQuery, OrderDto>
 {
-  private readonly AppDbContext context;
+  private readonly ReadDbContext context;
   private readonly IMapper mapper;
-  public GetOrderByIdQueryHandler(AppDbContext context, IMapper mapper)
+  public GetOrderByIdQueryHandler(ReadDbContext context, IMapper mapper)
   {
     this.context = context;
     this.mapper = mapper;
