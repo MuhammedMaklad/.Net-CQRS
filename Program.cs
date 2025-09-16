@@ -1,6 +1,7 @@
 using System.Net;
 using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MinimalApi.Filters;
 using OrderApi;
@@ -8,6 +9,7 @@ using OrderApi.Commands;
 using OrderApi.Contracts;
 using OrderApi.Data;
 using OrderApi.DTOs;
+using OrderApi.Events;
 using OrderApi.Handlers;
 using OrderApi.Models;
 using OrderApi.Queries;
@@ -30,6 +32,8 @@ builder.Services.AddAutoMapper(typeof(OrderProfile));
 // ! register services
 builder.Services.AddScoped<ICommandHandler<CreateOrderCommand,OrderDto>, CreateOrderCommandHandler>();
 builder.Services.AddScoped<IQueryHandler<GetOrderByIdQuery, OrderDto>, GetOrderByIdQueryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetOrderSummaryQuery, List<OrderSummaryDto>>, GetOrderSummaryQueryHandler>();
+builder.Services.AddSingleton<IEventPublisher, ConsoleEventPublisher>();
 
 // ! register validation
 builder.Services.AddScoped<IValidator<CreateOrderCommand>, CreateOrderCommandValidator>();
@@ -97,6 +101,13 @@ app.MapPost("/api/cqrs/v2/orders", async (ICommandHandler<CreateOrderCommand, Or
     return Results.Created($"/api/cqrs/v2/orders{order.Id}", order);
 })
 .AddEndpointFilter<ValidationFilter<CreateOrderCommand>>();
+
+
+app.MapGet("/api/cqrs/v2/orders", async (IQueryHandler<GetOrderSummaryQuery, List<OrderSummaryDto>> queryHandler) =>
+{
+    var orders = await queryHandler.HandlerAsync(new GetOrderSummaryQuery());
+    return Results.Ok(orders);
+});
 
 
 app.UseHttpsRedirection();
